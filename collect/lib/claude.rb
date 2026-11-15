@@ -8,8 +8,7 @@ require_relative "motifs"
 # grounds independently: the script compares both.
 class Claude
   MODEL = ENV.fetch("CLAUDE_MODEL", "claude-sonnet-5-5")
-  # Effort by text length, in characters: low by default, medium then high for long decisions.
-  MEDIUM_TEXT = 15_000
+  # Effort: medium by default, high for long decisions (in characters).
   HIGH_TEXT = 30_000
 
   # Dollars per million tokens. Cache writes cost 1.25 times the input price.
@@ -129,13 +128,11 @@ class Claude
 
   private
 
-  # Long decisions (e.g. a month of programmes reviewed for pluralism) list many programmes:
-  # at low effort, Claude tends to shorten the list. They are rare, so more effort costs little.
+  # Medium effort helps Claude follow the legal reasoning (e.g. a procedure closed because the
+  # breach is not established enough). Long decisions, such as a month of programmes reviewed
+  # for pluralism, list many programmes: high effort keeps Claude from shortening the list.
   def effort(text)
-    return :high if text.size > HIGH_TEXT
-    return :medium if text.size > MEDIUM_TEXT
-
-    :low
+    text.size > HIGH_TEXT ? :high : :medium
   end
 
   def record_usage(usage)

@@ -41,7 +41,7 @@ Spawn one general-purpose agent. Give it the paths of `visible/` and `regles.md`
 
 Once it has answered, send it (SendMessage) the path of `hidden/valeurs_script.md` and ask for:
 1. a table per column: agreements out of N and the rows in disagreement;
-2. the disagreements that matter, row by row, saying who is right and why, separating "the script is wrong" from "both readings hold";
+2. the disagreements that matter, row by row, saying who is right and why, separating "the script is wrong" from "both readings hold"; for `resume` (free text), whether each summary is faithful to the decision, with no added judgment, no person's name and at most 25 words;
 3. how useful `a_verifier` was: relevant alerts, noise, script errors no alert caught;
 4. a verdict per source (regex, Claude, Jev);
 5. the most useful corrections to the script or rules, by priority.

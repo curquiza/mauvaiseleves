@@ -26,4 +26,4 @@ The repository is public, and so are the GitHub Actions logs.
 - Data collection scripts (`collect/`): Ruby, simple and readable, standard library when possible.
 - Code comments and README in English. Data (CSV/Sheet column names, values, prompts sent to Claude and Jev) in French, like the decisions.
 - In Markdown, never break a line in the middle of a sentence.
-- LLM calls cost money: never run the full collection without the user's go-ahead, and test with `--limit` first.
+- LLM calls cost money: never run the full collection without the user's go-ahead, and test with `--newest` or `--oldest` first.
