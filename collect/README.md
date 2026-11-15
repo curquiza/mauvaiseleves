@@ -65,12 +65,13 @@ By default, all new decisions are processed (no `--newest`, `--oldest` or `--sin
 | `cid`, `date_decision`, `date_publication_jo`, `nor`, `lien_legifrance` | Légifrance API fields (`cid` is the unique id of each decision) |
 | `texte_complet` | Full text of the decision (title, recitals and operative part), exactly as sent to Claude and Jev, so that it can be checked without calling the API |
 | `date_ajout` | Date the row was added by the script |
-| `numero`, `montant_euros` | Regular expressions on the title and the operative part (`montant_euros` falls back to Claude when the regex finds nothing) |
+| `numero`, `montant` | Regular expressions on the title and the operative part (`montant` falls back to Claude when the regex finds nothing). `montant` keeps the currency of the decision: `200 000 €`, or `200 000 F` for fines in francs before 2002, never converted |
+| `resume` | Claude: one sentence of at most 25 words describing what the decision reproaches, without judgment or person's names |
 | `entite_visee`, `services`, `emissions` | Claude (extraction, to be reviewed). The code normalizes `entite_visee`: no acronym in brackets, no legal form at the start or the end (SAS, SARL, SA, Limited…), first letter capitalized. `entite_visee` is the company, association or administration targeted by the decision, written `[éditeur non nommé] du service …` when the decision does not name it |
 | `type`, `type_probabilites`, `nature_sanction`, `nature_sanction_probabilites` | Jev (one choice each), cross-checked with regular expressions: any disagreement is reported in `a_verifier`. `type` is one of `sanction`, `mise en demeure`, `clôture sans sanction` (a sanction procedure closed without sanction: no grounds, kept in the sheet but not meant to be displayed), `modification de sanction`, `autre` |
 | `media`, `media_probabilites` | Jev (one choice among `television`, `radio`, `video_a_la_demande`, `en_ligne`, `distributeur`, `edition`, `autre`) |
 | `motifs` | Claude: the grounds reproached by the decision |
-| `motifs_probabilites` | Jev: an independent probability for each ground (yes above 0.7, no below 0.3). Disagreements with Claude are reported in `a_verifier`; grounds that cannot apply to the media type (e.g. `creation_production` for a radio) are flagged |
+| `motifs_probabilites` | Jev: an independent probability for each ground (yes above 0.7, no below 0.3). Disagreements with Claude are reported in `a_verifier`; grounds that cannot apply to the media type (e.g. `quotas_culturels` for a website) are flagged |
 | `a_verifier` | Reasons why a row deserves a manual review: missing regex matches, values found by Claude only, doubts reported by Claude, uncertain Jev answers, disagreements between Jev and the regular expressions |
 
 Warnings (*mises en garde*) and reminder letters (*lettres de rappel*) are not published in the Journal officiel, so the script does not collect them.

@@ -37,8 +37,8 @@ SEARCHES = ["sanction", "en demeure"].freeze
 COLUMNS = %w[
   cid date_ajout date_decision date_publication_jo numero emetteur type type_probabilites
   nature_sanction nature_sanction_probabilites
-  montant_euros entite_visee titre nor lien_legifrance texte_complet
-  services emissions media media_probabilites motifs motifs_probabilites a_verifier
+  montant entite_visee titre nor lien_legifrance texte_complet
+  services emissions resume media media_probabilites motifs motifs_probabilites a_verifier
 ].freeze
 
 BATCH_SIZE = 10 # rows written to the sheet at once, so a crash loses little paid work
@@ -136,7 +136,7 @@ begin
     entity = Extract.normalize_entity(extraction["entite_visee"])
     motifs = extraction["motifs"].uniq
     regex_amount = Extract.amount(dispositif)
-    amount = regex_amount || extraction["montant_euros"]
+    amount = regex_amount || Extract.format_amount(extraction["montant"])
 
     checks = []
     checks << "texte tronqué dans le Sheet" if full_text.size > CELL_LIMIT
@@ -153,6 +153,7 @@ begin
     checks << "montant non trouvé" if kind == "amende" && amount.nil?
     checks << "montant absent du texte" if amount && !Extract.amount_in_text?(amount, full_text)
     checks << "montant alors que le type est #{type}" if amount && type != "sanction"
+    checks << "résumé manquant" if extraction["resume"].to_s.strip.empty?
     checks << "service non trouvé" if extraction["services"].empty? && !%w[edition autre].include?(media["choice"])
     checks << "doute Claude : #{extraction['doute']}" unless extraction["doute"].to_s.strip.empty?
     # A procedure closed without sanction reproaches nothing: no ground expected, no ground alert.
@@ -173,13 +174,14 @@ begin
       "type_probabilites" => format_probabilities(classification["type"]["probabilities"]),
       "nature_sanction" => kind,
       "nature_sanction_probabilites" => (format_probabilities(classification["nature"]["probabilities"]) if kind),
-      "montant_euros" => amount,
+      "montant" => amount,
       "entite_visee" => entity,
       "titre" => title,
       "nor" => decision["nor"],
       "lien_legifrance" => "https://www.legifrance.gouv.fr/jorf/id/#{cid}",
       "texte_complet" => full_text[0, CELL_LIMIT],
       "services" => extraction["services"].join(" ; "),
+      "resume" => extraction["resume"].to_s.strip,
       "emissions" => extraction["emissions"].map { |e| "#{e['titre']} (#{e['dates_diffusion'].join(', ')})" }.join(" ; "),
       "media" => media["choice"],
       "media_probabilites" => format_probabilities(media["probabilities"]),

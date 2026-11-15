@@ -41,12 +41,21 @@ class Claude
       le développement… »). N'ajoute pas de sigle entre parenthèses. Si la décision ne la nomme pas (par exemple « la personne éditrice
       du service xfrenchies.com »), écris « [éditeur non nommé] du service xfrenchies.com » :
       ce n'est pas un doute.
-    - montant_euros : le montant de la sanction pécuniaire prononcée par la décision, en euros,
-      sous forme de nombre entier. null si la décision ne prononce pas d'amende.
+    - montant : le montant de la sanction pécuniaire prononcée par la décision, tel qu'il est
+      écrit, avec sa devise : « 200 000 € », ou « 200 000 F » pour les francs. Ne convertis
+      jamais les francs en euros. null si la décision ne prononce pas d'amende.
     - motifs : les manquements que la décision reproche, choisis dans la liste ci-dessous
       (un ou plusieurs). Ne retiens un motif que si la décision le reproche, pas s'il est
       seulement évoqué. Si la décision clôt une procédure sans sanction (pas lieu de
       sanctionner ou de statuer), laisse la liste vide : ce n'est pas un doute.
+    - resume : une phrase de 25 mots maximum qui décrit concrètement le manquement que la
+      décision reproche (ce qui a été diffusé ou fait), sans répéter le nom de l'éditeur.
+      Reformule uniquement ce que la décision établit, sans jugement ni adjectif ajouté. Par
+      exemple : « Publicité clandestine pour une marque de boisson dans une émission de jeux. »
+      Ne mentionne ni la mesure prononcée, ni le retrait ou l'abrogation de l'autorisation, ni
+      la suite de la procédure. Pour une procédure close sans sanction, décris ce qui était
+      reproché dans la procédure (« Il était reproché… »), et ne présente jamais comme établi
+      un manquement que la décision écarte.
     - doute : si une de ces informations est ambiguë ou incertaine, explique en une phrase
       courte laquelle et pourquoi. Sinon, laisse une chaîne vide. Une valeur vide ou null qui
       applique ces règles (pas d'amende, aucune émission citée, aucun motif) n'est pas un doute :
@@ -78,11 +87,12 @@ class Claude
         }
       },
       entite_visee: { type: "string" },
-      montant_euros: { anyOf: [{ type: "integer" }, { type: "null" }] },
+      montant: { anyOf: [{ type: "string" }, { type: "null" }] },
       motifs: { type: "array", items: { type: "string", enum: Motifs::DEFINITIONS.keys } },
+      resume: { type: "string" },
       doute: { type: "string" }
     },
-    required: %w[services emissions entite_visee montant_euros motifs doute],
+    required: %w[services emissions entite_visee montant motifs resume doute],
     additionalProperties: false
   }.freeze
 
@@ -101,7 +111,7 @@ class Claude
   end
 
   # Returns { "services" => [...], "emissions" => [{ "titre", "dates_diffusion" }], "entite_visee" => "...",
-  #           "montant_euros" => 200000 or nil, "motifs" => ["haine_discrimination", ...], "doute" => "..." }.
+  #           "montant" => "200 000 €" or nil, "motifs" => ["haine_discrimination", ...], "resume" => "...", "doute" => "..." }.
   def extract(cid, text)
     message = @client.messages.create(
       model: MODEL.to_sym,

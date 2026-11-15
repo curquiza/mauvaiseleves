@@ -93,7 +93,7 @@ module Extract
     return "communiqué à l'antenne" if title =~ /insertion d.un communiqué/i
 
     case dispositif
-    when /sanction pécuniaire/i then "amende"
+    when /sanction pécuniaire|condamnée? à verser/i then "amende"
     when /suspen/i then "suspension"
     when /abrog|retir|retrait/i then "retrait d'autorisation"
     when /réduction de la durée/i then "réduction de la durée d'autorisation"
@@ -102,15 +102,26 @@ module Extract
     end
   end
 
-  # Amount in euros, from the wording "d'un montant de 200 000 euros".
+  # Amount with its currency, as written in the decision: "200 000 €", or "200 000 F" for the
+  # fines in francs before 2002. Wordings: "d'un montant de 200 000 euros", "une somme de 200000 F".
   def self.amount(dispositif)
-    match = dispositif[/montant de ([\d\s.]+?)\s*(?:euros|€)/i, 1]
-    match&.gsub(/[^\d]/, "")&.to_i
+    match = dispositif.match(/(?:montant de|somme de)\s+([\d\s.  ]+?)\s*(euros?|€|francs?|F)\b/i)
+    match && format_amount(match[1], match[2])
+  end
+
+  # "200000", "francs" => "200 000 F". Also normalizes Claude's answer ("200 000 euros").
+  def self.format_amount(number, unit = nil)
+    digits = number.to_s.gsub(/\D/, "")
+    return nil if digits.empty?
+
+    unit ||= number.to_s[/(euros?|€|francs?|F)\s*\z/i, 1]
+    currency = unit.to_s.match?(/\A(francs?|F)\z/i) ? "F" : "€"
+    "#{digits.reverse.scan(/\d{1,3}/).join(' ').reverse} #{currency}"
   end
 
   # True if the amount is written in the text, whatever the thousands separator.
   def self.amount_in_text?(amount, text)
-    text.gsub(/(?<=\d)[\s.  ](?=\d{3})/, "").include?(amount.to_s)
+    text.gsub(/(?<=\d)[\s.  ](?=\d{3})/, "").include?(amount.to_s.gsub(/\D/, ""))
   end
 
   # Writes one entity always the same way, whatever the wording of each decision:

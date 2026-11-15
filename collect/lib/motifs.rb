@@ -32,46 +32,31 @@ module Motifs
       non: "Les propos visent un groupe entier, sans personne précise mise en cause ; ou des affirmations fausses sur une personne sont relevées, mais la décision les reproche comme un manque de rigueur de l'information, pas comme une atteinte à ses droits."
     },
     "protection_mineurs" => {
-      question: "La décision reproche-t-elle un manquement à la protection du jeune public dans un programme de radio ou de télévision ?",
-      oui: "Signalétique, classification ou horaire de diffusion inadapté au jeune public.",
-      non: "Un site pornographique n'a pas mis en place de vérification de l'âge."
+      question: "La décision reproche-t-elle un manquement à la protection du jeune public ?",
+      oui: "Signalétique, classification ou horaire de diffusion inadapté au jeune public, communication commerciale interdite dans ou autour des programmes pour enfants (par exemple pour des jeux d'argent), ou site pornographique accessible sans système de vérification de l'âge conforme.",
+      non: "La décision reproche une publicité ou des propos sans rapport avec l'exposition du jeune public, par exemple une publicité clandestine dans une émission pour adultes."
     },
     "publicite" => {
       question: "La décision reproche-t-elle un manquement aux règles de la publicité ?",
       oui: "Publicité, parrainage, placement de produit ou téléachat non conforme aux règles.",
       non: "La décision ne mentionne la publicité qu'à propos des ressources ou du modèle économique de l'éditeur."
     },
-    "quotas_chansons" => {
-      question: "La décision reproche-t-elle le non-respect de quotas de chansons ou d'engagements de programmation musicale ?",
-      oui: "Proportion insuffisante de chansons d'expression française, de nouveaux talents ou de nouvelles productions, ou rotation des titres non conforme.",
+    "quotas_culturels" => {
+      question: "La décision reproche-t-elle le non-respect de quotas ou d'obligations en faveur des chansons ou des œuvres audiovisuelles et cinématographiques ?",
+      oui: "Une radio n'a pas diffusé assez de chansons d'expression française, de nouveaux talents ou de nouvelles productions, ou une chaîne de télévision ou un service de vidéo à la demande n'a pas assez diffusé ou financé de films, séries ou documentaires.",
       non: "La radio n'émet plus du tout, ou n'a pas transmis ses enregistrements."
     },
-    "conditions_techniques" => {
-      question: "La décision reproche-t-elle le non-respect des conditions techniques d'émission ?",
-      oui: "La radio n'émet aucun programme sur la fréquence autorisée, émet depuis un autre site, ou avec une puissance ou une déviation de fréquence non conforme.",
-      non: "La radio émet normalement, mais son programme ou ses quotas de chansons ne sont pas conformes."
-    },
-    "programme_autorisation" => {
-      question: "La décision reproche-t-elle un programme non conforme au format prévu par l'autorisation ?",
-      oui: "Catégorie de radio non respectée, part de programmes locaux insuffisante ou thématique de la chaîne non respectée.",
-      non: "La décision reproche seulement des quotas de chansons, des propos tenus à l'antenne ou des conditions techniques d'émission."
+    "non_respect_autorisation" => {
+      question: "La décision reproche-t-elle de ne pas respecter les conditions de l'autorisation d'émettre ?",
+      oui: "Aucun programme n'est diffusé sur la fréquence autorisée, l'émission se fait depuis un autre site ou avec une puissance ou une déviation de fréquence non conforme, ou le programme ne correspond pas au format prévu (catégorie de radio, part de programmes locaux, thématique de la chaîne).",
+      non: "La décision reproche seulement des quotas de chansons, des propos tenus à l'antenne ou des documents non transmis."
     },
     "obligations_declaratives" => {
       question: "La décision reproche-t-elle de ne pas avoir transmis des documents ou des informations à l'Arcom ?",
       oui: "Comptes, enregistrements, déclarations ou informations demandés par l'Arcom n'ont pas été fournis.",
       non: "Le document manquant devait être remis à un autre organisme que l'Arcom, par exemple la BnF, ou l'éditeur n'a simplement pas présenté d'observations pendant la procédure."
     },
-    "creation_production" => {
-      question: "La décision reproche-t-elle le non-respect d'obligations envers les œuvres audiovisuelles ou cinématographiques ?",
-      oui: "Une chaîne de télévision ou un service de vidéo à la demande n'a pas assez diffusé ou financé de films, séries ou documentaires.",
-      non: "La décision porte sur les chansons ou la programmation musicale d'une radio."
-    },
-    "verification_age" => {
-      question: "La décision reproche-t-elle l'absence de vérification de l'âge des utilisateurs d'un site pornographique ?",
-      oui: "Le service en ligne donne accès à des contenus pornographiques sans système de vérification de l'âge conforme.",
-      non: "Un programme de télévision ou de radio est diffusé à un horaire ou avec une signalétique inadaptés au jeune public."
-    },
-    "medias_sous_sanctions" => {
+    "medias_interdits_ue" => {
       question: "La décision reproche-t-elle la diffusion d'un média visé par des sanctions de l'Union européenne ?",
       oui: "Diffusion ou reprise de chaînes ou de contenus de médias sanctionnés par l'Union européenne, notamment des médias russes.",
       non: "La décision évoque l'actualité internationale sans viser la diffusion d'un média sanctionné."
@@ -85,9 +70,7 @@ module Motifs
 
   # Media types a ground can apply to. Grounds not listed apply to any media type.
   APPLICABLE_MEDIA = {
-    "creation_production" => %w[television video_a_la_demande],
-    "quotas_chansons" => %w[radio],
-    "verification_age" => %w[en_ligne]
+    "quotas_culturels" => %w[radio television video_a_la_demande]
   }.freeze
 
   def self.applies?(motif, media)
