@@ -58,6 +58,14 @@ bundle exec ruby fetch_decisions.rb                          # process all new d
 
 By default, all new decisions are processed (no `--newest`, `--oldest` or `--since`). Decisions are written in chronological order of publication in the Journal officiel (oldest first), so the daily run keeps the sheet chronological by appending the newest decisions at the end; `--newest N` takes the N most recent ones and also writes them oldest first. Rows are written to the sheet in batches of 10, and pending rows are written even if the script fails, so that work already paid for is not lost.
 
+## Daily run
+
+The GitHub Actions workflow `.github/workflows/daily-collection.yml` runs the script every morning at 03:00 UTC (4am in Paris in winter, 5am in summer), with `--since` set to one year ago and `--cost`. Decisions already in the sheet are skipped, so the run only pays for new decisions, and a day missed (for example when PISTE is down) is caught up the next morning. It can also be started by hand from the Actions tab.
+
+It needs these repository secrets (Settings > Secrets and variables > Actions): `PISTE_CLIENT_ID`, `PISTE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY`, `GOOGLE_SHEET_ID`, and `GOOGLE_CREDENTIALS_JSON` (the whole content of the Google service account key file).
+
+The repository is public, and so are the workflow logs: they only show decision titles and costs, never a secret.
+
 ## Where each column comes from
 
 | Column | Source |

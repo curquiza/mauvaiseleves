@@ -1,0 +1,47 @@
+# Fetches the new Arcom decisions every morning and appends them to the Google Sheet.
+# Decisions published in the last year are searched again; the ones already in the
+# sheet are skipped, so a failed day is caught up the next morning.
+#
+# The repository is public, and so are these logs: secrets only come from GitHub
+# Actions secrets and are never printed. The script only logs decision titles and costs.
+
+name: Daily collection
+
+on:
+  schedule:
+    # 03:00 UTC: 4am in Paris in winter, 5am in summer. GitHub may start it a bit later.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-collection
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: collect
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+          working-directory: collect
+
+      - name: Fetch new decisions
+        env:
+          PISTE_CLIENT_ID: ${{ secrets.PISTE_CLIENT_ID }}
+          PISTE_CLIENT_SECRET: ${{ secrets.PISTE_CLIENT_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+        run: bundle exec ruby fetch_decisions.rb --since "$(date -u -d '1 year ago' +%F)" --cost
