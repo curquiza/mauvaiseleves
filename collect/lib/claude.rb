@@ -1,0 +1,133 @@
+require "anthropic"
+require "json"
+require_relative "env"
+require_relative "motifs"
+
+# Extracts with Claude what has no fixed wording (entity, services, programmes, amount)
+# and the grounds of the decision, each with a supporting quote. Jev judges the same
+# grounds independently: the script compares both.
+class Claude
+  MODEL = ENV.fetch("CLAUDE_MODEL", "claude-sonnet-5-5")
+
+  # Dollars per million tokens. Cache writes cost 1.25 times the input price.
+  PRICES = {
+    "claude-sonnet-5-5" => { input: 2.0, output: 10.0, cache_read: 0.20, cache_write: 2.50 },
+    "claude-opus-5-5" => { input: 4.0, output: 20.0, cache_read: 0.20, cache_write: 5.00 }
+  }.freeze
+
+  INSTRUCTIONS = <<~PROMPT
+    Tu lis une décision de l'Arcom (ou de l'ancien CSA) publiée au Journal officiel.
+    Extrais uniquement ce qui est écrit explicitement dans le texte :
+    - services : le ou les services concernés par la décision (nom de la chaîne de télévision,
+      de la radio ou du site), tels qu'écrits dans le texte, sans la société éditrice. Ils sont
+      souvent entre guillemets ; un nom de site peut aussi être écrit sans guillemets.
+    - emissions : les émissions ou séquences mises en cause, avec leurs dates de diffusion
+      au format AAAA-MM-JJ (une période s'écrit AAAA-MM-JJ/AAAA-MM-JJ). Quand la décision porte
+      sur l'ensemble des programmes d'une période (par exemple le pluralisme sur un mois), liste
+      les émissions qu'elle cite en exemple, avec leurs dates. N'inclus pas les émissions citées
+      au titre de décisions antérieures, ni les dates qui n'apparaissent que dans une demande
+      d'enregistrements ou de documents. Si le manquement porte sur l'ensemble du programme
+      d'une période sans qu'aucune émission soit citée (par exemple des quotas de chansons),
+      laisse la liste vide.
+    - entite_visee : l'entité visée par la décision (société, association, administration…),
+      c'est-à-dire l'éditeur ou le responsable, pas le nom du service. Écris son nom sans article
+      ni forme juridique en tête : « Radio France » et non « la société nationale de programme
+      Radio France », « Lyon Media Plus » et non « SARL Lyon Media Plus », sauf si ces mots font
+      partie du nom (« Société d'exploitation d'un service d'information », « Association pour
+      le développement… »). Si la décision ne la nomme pas (par exemple « la personne éditrice
+      du service xfrenchies.com »), écris « [éditeur non nommé] du service xfrenchies.com » :
+      ce n'est pas un doute.
+    - montant_euros : le montant de la sanction pécuniaire prononcée par la décision, en euros,
+      sous forme de nombre entier. null si la décision ne prononce pas d'amende.
+    - motifs : les manquements que la décision reproche, choisis dans la liste ci-dessous
+      (un ou plusieurs), chacun avec une citation courte et exacte du texte qui l'établit.
+      Ne retiens un motif que si la décision le reproche, pas s'il est seulement évoqué.
+    - doute : si une de ces informations est ambiguë ou incertaine, explique en une phrase
+      courte laquelle et pourquoi. Sinon, laisse une chaîne vide.
+    N'invente rien. Laisse une liste vide si l'information n'est pas dans le texte.
+    N'inclus aucun nom de personne. Les décisions remplacent souvent les noms par « M. X. »,
+    « l'invitée », etc. : c'est normal, ce n'est pas un doute. Si une information demandée
+    contient un nom anonymisé (« [X] », « [Mme X] », « M. X. »…), remplace ce nom par
+    « [nom anonymisé] » : « [X] et vous » devient « [nom anonymisé] et vous ».
+
+    Liste des motifs :
+    #{Motifs.list}
+  PROMPT
+
+  SCHEMA = {
+    type: "object",
+    properties: {
+      services: { type: "array", items: { type: "string" } },
+      emissions: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            titre: { type: "string" },
+            dates_diffusion: { type: "array", items: { type: "string" } }
+          },
+          required: %w[titre dates_diffusion],
+          additionalProperties: false
+        }
+      },
+      entite_visee: { type: "string" },
+      montant_euros: { anyOf: [{ type: "integer" }, { type: "null" }] },
+      motifs: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            motif: { type: "string", enum: Motifs::DEFINITIONS.keys },
+            citation: { type: "string" }
+          },
+          required: %w[motif citation],
+          additionalProperties: false
+        }
+      },
+      doute: { type: "string" }
+    },
+    required: %w[services emissions entite_visee montant_euros motifs doute],
+    additionalProperties: false
+  }.freeze
+
+  attr_reader :calls, :usage
+
+  def initialize
+    @client = Anthropic::Client.new(api_key: Env.fetch("ANTHROPIC_API_KEY"))
+    @calls = 0
+    @usage = { input: 0, output: 0, cache_read: 0, cache_write: 0 }
+  end
+
+  # Cost in dollars of the calls made so far, or nil for a model without known prices.
+  def cost
+    prices = PRICES[MODEL] or return nil
+    usage.sum { |kind, tokens| tokens * prices[kind] / 1_000_000 }
+  end
+
+  # Returns { "services" => [...], "emissions" => [{ "titre", "dates_diffusion" }], "entite_visee" => "...",
+  #           "montant_euros" => 200000 or nil, "motifs" => [{ "motif", "citation" }], "doute" => "..." }.
+  def extract(cid, text)
+    message = @client.messages.create(
+      model: MODEL.to_sym,
+      max_tokens: 4000,
+      output_config: { effort: :low, format_: { type: :json_schema, schema: SCHEMA } },
+      # The instructions are the same for every decision: caching them makes repeated calls cheaper.
+      system_: [{ type: "text", text: INSTRUCTIONS, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: text }]
+    )
+    record_usage(message.usage)
+    raise "Claude refused to process #{cid}" if message.stop_reason == :refusal
+
+    JSON.parse(message.content.find { |block| block.type == :text }.text)
+  end
+
+  private
+
+  def record_usage(usage)
+    @calls += 1
+    @usage[:input] += usage.input_tokens.to_i
+    @usage[:output] += usage.output_tokens.to_i
+    @usage[:cache_read] += usage.cache_read_input_tokens.to_i
+    @usage[:cache_write] += usage.cache_creation_input_tokens.to_i
+  end
+end
