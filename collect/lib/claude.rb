@@ -8,6 +8,9 @@ require_relative "motifs"
 # grounds independently: the script compares both.
 class Claude
   MODEL = ENV.fetch("CLAUDE_MODEL", "claude-sonnet-5-5")
+  # Effort by text length, in characters: low by default, medium then high for long decisions.
+  MEDIUM_TEXT = 15_000
+  HIGH_TEXT = 30_000
 
   # Dollars per million tokens. Cache writes cost 1.25 times the input price.
   PRICES = {
@@ -26,7 +29,8 @@ class Claude
       sur l'ensemble des programmes d'une période (par exemple le pluralisme sur un mois), liste
       les émissions qu'elle cite en exemple, avec leurs dates. N'inclus pas les émissions citées
       au titre de décisions antérieures, ni les dates qui n'apparaissent que dans une demande
-      d'enregistrements ou de documents. Si le manquement porte sur l'ensemble du programme
+      d'enregistrements ou de documents. Liste toutes les émissions et toutes les dates citées,
+      sans en omettre ni les résumer. Si le manquement porte sur l'ensemble du programme
       d'une période sans qu'aucune émission soit citée (par exemple des quotas de chansons),
       laisse la liste vide.
     - entite_visee : l'entité visée par la décision (société, association, administration…),
@@ -34,16 +38,19 @@ class Claude
       ni forme juridique en tête : « Radio France » et non « la société nationale de programme
       Radio France », « Lyon Media Plus » et non « SARL Lyon Media Plus », sauf si ces mots font
       partie du nom (« Société d'exploitation d'un service d'information », « Association pour
-      le développement… »). Si la décision ne la nomme pas (par exemple « la personne éditrice
+      le développement… »). N'ajoute pas de sigle entre parenthèses. Si la décision ne la nomme pas (par exemple « la personne éditrice
       du service xfrenchies.com »), écris « [éditeur non nommé] du service xfrenchies.com » :
       ce n'est pas un doute.
     - montant_euros : le montant de la sanction pécuniaire prononcée par la décision, en euros,
       sous forme de nombre entier. null si la décision ne prononce pas d'amende.
     - motifs : les manquements que la décision reproche, choisis dans la liste ci-dessous
-      (un ou plusieurs), chacun avec une citation courte et exacte du texte qui l'établit.
-      Ne retiens un motif que si la décision le reproche, pas s'il est seulement évoqué.
+      (un ou plusieurs). Ne retiens un motif que si la décision le reproche, pas s'il est
+      seulement évoqué. Si la décision clôt une procédure sans sanction (pas lieu de
+      sanctionner ou de statuer), laisse la liste vide : ce n'est pas un doute.
     - doute : si une de ces informations est ambiguë ou incertaine, explique en une phrase
-      courte laquelle et pourquoi. Sinon, laisse une chaîne vide.
+      courte laquelle et pourquoi. Sinon, laisse une chaîne vide. Une valeur vide ou null qui
+      applique ces règles (pas d'amende, aucune émission citée, aucun motif) n'est pas un doute :
+      ne la justifie pas.
     N'invente rien. Laisse une liste vide si l'information n'est pas dans le texte.
     N'inclus aucun nom de personne. Les décisions remplacent souvent les noms par « M. X. »,
     « l'invitée », etc. : c'est normal, ce n'est pas un doute. Si une information demandée
@@ -72,18 +79,7 @@ class Claude
       },
       entite_visee: { type: "string" },
       montant_euros: { anyOf: [{ type: "integer" }, { type: "null" }] },
-      motifs: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            motif: { type: "string", enum: Motifs::DEFINITIONS.keys },
-            citation: { type: "string" }
-          },
-          required: %w[motif citation],
-          additionalProperties: false
-        }
-      },
+      motifs: { type: "array", items: { type: "string", enum: Motifs::DEFINITIONS.keys } },
       doute: { type: "string" }
     },
     required: %w[services emissions entite_visee montant_euros motifs doute],
@@ -105,12 +101,12 @@ class Claude
   end
 
   # Returns { "services" => [...], "emissions" => [{ "titre", "dates_diffusion" }], "entite_visee" => "...",
-  #           "montant_euros" => 200000 or nil, "motifs" => [{ "motif", "citation" }], "doute" => "..." }.
+  #           "montant_euros" => 200000 or nil, "motifs" => ["haine_discrimination", ...], "doute" => "..." }.
   def extract(cid, text)
     message = @client.messages.create(
       model: MODEL.to_sym,
-      max_tokens: 4000,
-      output_config: { effort: :low, format_: { type: :json_schema, schema: SCHEMA } },
+      max_tokens: 16_000, # room for thinking at high effort
+      output_config: { effort: effort(text), format_: { type: :json_schema, schema: SCHEMA } },
       # The instructions are the same for every decision: caching them makes repeated calls cheaper.
       system_: [{ type: "text", text: INSTRUCTIONS, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: text }]
@@ -122,6 +118,15 @@ class Claude
   end
 
   private
+
+  # Long decisions (e.g. a month of programmes reviewed for pluralism) list many programmes:
+  # at low effort, Claude tends to shorten the list. They are rare, so more effort costs little.
+  def effort(text)
+    return :high if text.size > HIGH_TEXT
+    return :medium if text.size > MEDIUM_TEXT
+
+    :low
+  end
 
   def record_usage(usage)
     @calls += 1

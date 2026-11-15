@@ -9,21 +9,24 @@ require_relative "env"
 # The sheet is the reference database: its header row defines the columns, and the
 # "cid" column lists the decisions already processed.
 class Sheets
-  TAB = "v1"
-  # Quoted tab name for A1 ranges: unquoted, "v1" would be read as the cell V1.
-  RANGE = "'#{TAB}'"
+  DEFAULT_TAB = "v1"
   HEADER_ROW = 3 # rows above the header hold free notes
   API = "https://sheets.googleapis.com/v4/spreadsheets"
   SCOPE = "https://www.googleapis.com/auth/spreadsheets"
   CREDENTIALS_FILE = File.expand_path("../credentials/google-service-account.json", __dir__)
 
-  def initialize
+  attr_reader :tab, :range
+
+  def initialize(tab = DEFAULT_TAB)
     @sheet_id = Env.fetch("GOOGLE_SHEET_ID")
+    @tab = tab
+    # Quoted tab name for A1 ranges: unquoted, "v1" would be read as the cell V1.
+    @range = "'#{tab}'"
   end
 
   # Column names, in sheet order.
   def header
-    @header ||= get_values("#{RANGE}!#{HEADER_ROW}:#{HEADER_ROW}").first.to_a.map(&:strip)
+    @header ||= get_values("#{range}!#{HEADER_ROW}:#{HEADER_ROW}").first.to_a.map(&:strip)
   end
 
   # Aborts with a clear message if the sheet lacks a column the script writes.
@@ -31,13 +34,13 @@ class Sheets
     missing = columns - header
     return if missing.empty?
 
-    abort "Missing columns in row #{HEADER_ROW} of tab #{TAB}: #{missing.join(', ')}"
+    abort "Missing columns in row #{HEADER_ROW} of tab #{tab}: #{missing.join(', ')}"
   end
 
   # Decision ids already in the sheet.
   def existing_cids
     index = header.index("cid")
-    rows = get_values("#{RANGE}!A#{HEADER_ROW + 1}:ZZ")
+    rows = get_values("#{range}!A#{HEADER_ROW + 1}:ZZ")
     rows.map { |row| row[index].to_s.strip }.reject(&:empty?).to_set
   end
 
@@ -46,11 +49,11 @@ class Sheets
   def append(rows)
     return if rows.empty?
 
-    next_row = [get_values(RANGE).size, HEADER_ROW].max + 1
+    next_row = [get_values(range).size, HEADER_ROW].max + 1
     # A nil value leaves the cell untouched: used for the sheet's own columns only.
     # The script's empty values are written as "" so that a cell is never left stale.
     values = rows.map { |row| header.map { |column| row.key?(column) ? (row[column] || "") : nil } }
-    request(:put, "/values/#{escape("#{RANGE}!A#{next_row}")}?valueInputOption=RAW", { values: values })
+    request(:put, "/values/#{escape("#{range}!A#{next_row}")}?valueInputOption=RAW", { values: values })
   end
 
   private

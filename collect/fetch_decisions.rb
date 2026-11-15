@@ -4,7 +4,7 @@
 # ones not yet in the Google Sheet.
 #
 #   bundle exec ruby fetch_decisions.rb --dry-run
-#   bundle exec ruby fetch_decisions.rb --limit 10
+#   bundle exec ruby fetch_decisions.rb --newest 10
 
 require "date"
 require "optparse"
@@ -18,13 +18,16 @@ require_relative "lib/sheets"
 
 Env.load
 
-options = { since: nil, limit: nil, dry_run: false, cost: false }
+options = { since: nil, newest: nil, oldest: nil, tab: Sheets::DEFAULT_TAB, dry_run: false, cost: false }
 OptionParser.new do |opts|
   opts.on("--since DATE", "Only texts published on or after this date, YYYY-MM-DD (default: all dates)") { |v| options[:since] = Date.iso8601(v) }
-  opts.on("--limit N", Integer, "Only the N most recent new texts, for testing (default: all)") { |v| options[:limit] = v }
+  opts.on("--newest N", Integer, "Only the N most recent new texts, for testing") { |v| options[:newest] = v }
+  opts.on("--oldest N", Integer, "Only the N oldest new texts, for testing") { |v| options[:oldest] = v }
+  opts.on("--tab NAME", "Sheet tab to write to (default: #{Sheets::DEFAULT_TAB})") { |v| options[:tab] = v }
   opts.on("--dry-run", "List the new decisions without calling Claude or Jev nor writing to the sheet") { options[:dry_run] = true }
   opts.on("--cost", "Show the tokens used and the cost of Claude and Jev at the end") { options[:cost] = true }
 end.parse!
+abort "--newest and --oldest cannot be used together" if options[:newest] && options[:oldest]
 
 # Expressions searched in titles. They cover "portant sanction", "prononçant une sanction",
 # "relative à la procédure de sanction", "à titre de sanction", "mettant en demeure",
@@ -35,7 +38,7 @@ COLUMNS = %w[
   cid date_ajout date_decision date_publication_jo numero emetteur type type_probabilites
   nature_sanction nature_sanction_probabilites
   montant_euros entite_visee titre nor lien_legifrance texte_complet
-  services emissions media media_probabilites motifs motifs_citations motifs_probabilites a_verifier
+  services emissions media media_probabilites motifs motifs_probabilites a_verifier
 ].freeze
 
 BATCH_SIZE = 10 # rows written to the sheet at once, so a crash loses little paid work
@@ -46,20 +49,20 @@ def format_probabilities(probabilities)
   probabilities.map { |option, p| "#{option}: #{p.to_f.round(2)}" }.join(" ; ")
 end
 
-# Grounds come from Claude (with a quote). Jev judges each ground independently:
+# Grounds come from Claude. Jev judges each ground independently:
 # disagreements go to a_verifier. Grounds that cannot apply to the media type are
 # ignored on Jev's side and flagged on Claude's side.
 def motif_checks(claude_motifs, probabilities, media)
   checks = []
   claude_motifs.each do |motif|
     p = probabilities[motif].to_f
-    checks << "motif inhabituel pour ce média : #{motif}" unless Motifs.applies?(motif, media)
-    checks << "motif contesté par Jev : #{motif} (#{p.round(2)})" if p < Jev::NO
+    checks << "motif retenu par Claude mais inhabituel pour ce média : #{motif}" unless Motifs.applies?(motif, media)
+    checks << "désaccord Claude/Jev : #{motif} retenu par Claude, rejeté par Jev (#{p.round(2)})" if p < Jev::NO
   end
   probabilities.each do |motif, p|
     next if claude_motifs.include?(motif) || p.to_f < Jev::YES || !Motifs.applies?(motif, media)
 
-    checks << "motif vu par Jev seul : #{motif} (#{p.to_f.round(2)})"
+    checks << "désaccord Claude/Jev : #{motif} retenu par Jev (#{p.to_f.round(2)}), pas par Claude"
   end
   checks
 end
@@ -80,7 +83,7 @@ def print_cost(claude, jev, processed)
   warn "Total: #{format_cost(total)}, i.e. #{format_cost(total / processed)} per decision"
 end
 
-sheets = Sheets.new
+sheets = Sheets.new(options[:tab])
 sheets.check_columns!(COLUMNS)
 known = sheets.existing_cids
 warn "#{known.size} decisions already in the sheet"
@@ -92,8 +95,12 @@ results = results.uniq { |r| r.dig("titles", 0, "cid") }
 results = results.select { |r| r["nature"].to_s =~ /d[ée]cision/i }
 results = results.reject { |r| known.include?(r.dig("titles", 0, "cid")) }
 results = results.select { |r| r["datePublication"].to_s[0, 10] >= options[:since].iso8601 } if options[:since]
-results = results.sort_by { |r| r["datePublication"].to_s }.reverse
-results = results.first(options[:limit]) if options[:limit]
+# Chronological order (oldest first), so that the sheet stays chronological when the daily
+# run appends new decisions at the end. --newest keeps the most recent ones. The cid breaks
+# ties between decisions published the same day, so the order never changes between runs.
+results = results.sort_by { |r| [r["datePublication"].to_s, r.dig("titles", 0, "cid")] }
+results = results.last(options[:newest]) if options[:newest]
+results = results.first(options[:oldest]) if options[:oldest]
 warn "#{results.size} new decisions to process"
 
 if options[:dry_run]
@@ -119,26 +126,26 @@ begin
     full_text = Extract.full_text(decision)
 
     extraction = claude.extract(cid, full_text)
-    classification = jev.classify(full_text)
+    classification = jev.classify(Extract.sections(decision))
     probabilities = classification["motifs"]
     media = classification["media"]
     # Type and kind of sanction come from Jev; the regex answers are only used to cross-check.
     type = classification["type"]["choice"]
     kind = classification["nature"]["choice"] if type == "sanction"
     regex_kind = Extract.sanction_kind(dispositif, title) if regex_type == "sanction"
-    entity = extraction["entite_visee"].to_s.strip
-    claude_motifs = extraction["motifs"].uniq { |m| m["motif"] }
-    motifs = claude_motifs.map { |m| m["motif"] }
+    entity = Extract.normalize_entity(extraction["entite_visee"])
+    motifs = extraction["motifs"].uniq
     regex_amount = Extract.amount(dispositif)
     amount = regex_amount || extraction["montant_euros"]
 
     checks = []
     checks << "texte tronqué dans le Sheet" if full_text.size > CELL_LIMIT
+    checks << "dispositif absent de Légifrance (voir le PDF du JO)" if dispositif.empty?
     checks << "type : regex = #{regex_type}, Jev = #{type}" if regex_type != "à vérifier" && regex_type != type
-    checks << "type incertain" if classification["type"]["confidence"].to_f < Jev::MIN_CONFIDENCE
+    checks << "type incertain" if Jev.top_probability(classification["type"]) < Jev::YES
     if type == "sanction"
       checks << "nature : regex = #{regex_kind}, Jev = #{kind}" if regex_kind && regex_kind != kind
-      checks << "nature de sanction incertaine" if classification["nature"]["confidence"].to_f < Jev::MIN_CONFIDENCE
+      checks << "nature de sanction incertaine" if Jev.top_probability(classification["nature"]) < Jev::YES
     end
     checks << "entité visée non trouvée" if entity.empty?
     checks << "forme de l'entité visée à vérifier" if !entity.empty? && !entity.match?(/\A(\p{Lu}|\d|\[)/)
@@ -148,9 +155,12 @@ begin
     checks << "montant alors que le type est #{type}" if amount && type != "sanction"
     checks << "service non trouvé" if extraction["services"].empty? && !%w[edition autre].include?(media["choice"])
     checks << "doute Claude : #{extraction['doute']}" unless extraction["doute"].to_s.strip.empty?
-    checks << "aucun motif" if motifs.empty?
-    checks.concat(motif_checks(motifs, probabilities, media["choice"]))
-    checks << "type de média incertain" if media["confidence"].to_f < Jev::MIN_CONFIDENCE
+    # A procedure closed without sanction reproaches nothing: no ground expected, no ground alert.
+    unless type == "clôture sans sanction"
+      checks << "aucun motif" if motifs.empty?
+      checks.concat(motif_checks(motifs, probabilities, media["choice"]))
+    end
+    checks << "type de média incertain" if Jev.top_probability(media) < Jev::YES
 
     batch << {
       "cid" => cid,
@@ -174,7 +184,6 @@ begin
       "media" => media["choice"],
       "media_probabilites" => format_probabilities(media["probabilities"]),
       "motifs" => motifs.join(" ; "),
-      "motifs_citations" => claude_motifs.map { |m| "#{m['motif']} : « #{m['citation']} »" }.join(" ; "),
       "motifs_probabilites" => format_probabilities(probabilities),
       "a_verifier" => checks.join(" ; ")
     }

@@ -43,19 +43,20 @@ GOOGLE_SHEET_ID=...
 2. Save the key as `collect/credentials/google-service-account.json` (the `credentials/` folder is never committed).
 3. Share the Google Sheet with the service account email, as Editor.
 
-The sheet must have a tab named `v1` with the column names in row 3 (rows 1 and 2 are free for notes). The script writes each value in the column with the matching name, leaves the other columns empty, and stops if one of its columns is missing. Columns can be reordered and extra columns added.
+The sheet must have a tab named `v1` (or the tab given with `--tab`) with the column names in row 3 (rows 1 and 2 are free for notes). The script writes each value in the column with the matching name, leaves the other columns empty, and stops if one of its columns is missing. Columns can be reordered and extra columns added.
 
 ## Usage
 
 ```fish
-bundle exec ruby fetch_decisions.rb --dry-run          # list the new decisions, free (no Claude, no Jev, no writing)
-bundle exec ruby fetch_decisions.rb --limit 10         # process the 10 most recent new decisions
-bundle exec ruby fetch_decisions.rb --since 2026-11-01 # process the new decisions published since this date
-bundle exec ruby fetch_decisions.rb --limit 10 --cost  # same, and show the tokens used and the real cost of Claude and Jev
-bundle exec ruby fetch_decisions.rb                    # process all new decisions
+bundle exec ruby fetch_decisions.rb --dry-run                # list the new decisions, free (no Claude, no Jev, no writing)
+bundle exec ruby fetch_decisions.rb --newest 10              # process the 10 most recent new decisions
+bundle exec ruby fetch_decisions.rb --since 2026-11-01       # process the new decisions published since this date
+bundle exec ruby fetch_decisions.rb --newest 10 --cost       # same, and show the tokens used and the real cost of Claude and Jev
+bundle exec ruby fetch_decisions.rb --oldest 10 --tab test   # the 10 oldest new decisions, written to the tab "test"
+bundle exec ruby fetch_decisions.rb                          # process all new decisions
 ```
 
-By default, there is no limit and no start date: all new decisions are processed. Rows are written to the sheet in batches of 10, and pending rows are written even if the script fails, so that work already paid for is not lost.
+By default, all new decisions are processed (no `--newest`, `--oldest` or `--since`). Decisions are written in chronological order of publication in the Journal officiel (oldest first), so the daily run keeps the sheet chronological by appending the newest decisions at the end; `--newest N` takes the N most recent ones and also writes them oldest first. Rows are written to the sheet in batches of 10, and pending rows are written even if the script fails, so that work already paid for is not lost.
 
 ## Where each column comes from
 
@@ -65,10 +66,10 @@ By default, there is no limit and no start date: all new decisions are processed
 | `texte_complet` | Full text of the decision (title, recitals and operative part), exactly as sent to Claude and Jev, so that it can be checked without calling the API |
 | `date_ajout` | Date the row was added by the script |
 | `numero`, `montant_euros` | Regular expressions on the title and the operative part (`montant_euros` falls back to Claude when the regex finds nothing) |
-| `entite_visee`, `services`, `emissions` | Claude (extraction, to be reviewed). `entite_visee` is the company, association or administration targeted by the decision, written `[éditeur non nommé] du service …` when the decision does not name it |
-| `type`, `type_probabilites`, `nature_sanction`, `nature_sanction_probabilites` | Jev (one choice each), cross-checked with regular expressions: any disagreement is reported in `a_verifier` |
+| `entite_visee`, `services`, `emissions` | Claude (extraction, to be reviewed). The code normalizes `entite_visee`: no acronym in brackets, no legal form at the start or the end (SAS, SARL, SA, Limited…), first letter capitalized. `entite_visee` is the company, association or administration targeted by the decision, written `[éditeur non nommé] du service …` when the decision does not name it |
+| `type`, `type_probabilites`, `nature_sanction`, `nature_sanction_probabilites` | Jev (one choice each), cross-checked with regular expressions: any disagreement is reported in `a_verifier`. `type` is one of `sanction`, `mise en demeure`, `clôture sans sanction` (a sanction procedure closed without sanction: no grounds, kept in the sheet but not meant to be displayed), `modification de sanction`, `autre` |
 | `media`, `media_probabilites` | Jev (one choice among `television`, `radio`, `video_a_la_demande`, `en_ligne`, `distributeur`, `edition`, `autre`) |
-| `motifs`, `motifs_citations` | Claude: the grounds reproached by the decision, each with a supporting quote |
+| `motifs` | Claude: the grounds reproached by the decision |
 | `motifs_probabilites` | Jev: an independent probability for each ground (yes above 0.7, no below 0.3). Disagreements with Claude are reported in `a_verifier`; grounds that cannot apply to the media type (e.g. `creation_production` for a radio) are flagged |
 | `a_verifier` | Reasons why a row deserves a manual review: missing regex matches, values found by Claude only, doubts reported by Claude, uncertain Jev answers, disagreements between Jev and the regular expressions |
 
