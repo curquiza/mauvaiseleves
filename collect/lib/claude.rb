@@ -52,7 +52,9 @@ class Claude
       Reformule uniquement ce que la décision établit, sans jugement ni adjectif ajouté. Par
       exemple : « Publicité clandestine pour une marque de boisson dans une émission de jeux. »
       Ne mentionne ni la mesure prononcée, ni le retrait ou l'abrogation de l'autorisation, ni
-      la suite de la procédure. Pour une procédure close sans sanction, décris ce qui était
+      la suite de la procédure. N'utilise une date ou une année que pour les faits qu'elle
+      concerne dans la décision (par exemple, pas « demandes formulées depuis 2022 » si 2022
+      est la date d'entrée en vigueur d'une obligation et non celle des demandes). Pour une procédure close sans sanction, décris ce qui était
       reproché dans la procédure (« Il était reproché… »), et ne présente jamais comme établi
       un manquement que la décision écarte.
     - doute : si une de ces informations est ambiguë ou incertaine, explique en une phrase
