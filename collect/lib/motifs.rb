@@ -9,7 +9,7 @@ module Motifs
     "haine_discrimination" => {
       question: "La décision reproche-t-elle des propos qui incitent à la haine ou encouragent des comportements discriminatoires ?",
       oui: "La décision retient des propos qui stigmatisent un groupe en raison de son origine, sa religion, sa nationalité, son sexe, son orientation sexuelle ou son handicap.",
-      non: "La décision reproche seulement un déséquilibre politique, une erreur factuelle ou un défaut technique, sans propos visant un groupe."
+      non: "La décision reproche seulement un déséquilibre politique, une erreur factuelle ou un défaut technique ; ou elle qualifie des propos de stéréotypés mais ne retient comme manquement que la maîtrise de l'antenne."
     },
     "maitrise_antenne" => {
       question: "La décision reproche-t-elle à l'éditeur de ne pas avoir conservé la maîtrise de son antenne ?",
@@ -29,7 +29,7 @@ module Motifs
     "droits_personne" => {
       question: "La décision reproche-t-elle une atteinte aux droits d'une personne précise ?",
       oui: "Atteinte à la dignité, à la vie privée ou à la présomption d'innocence d'une personne identifiable.",
-      non: "Les propos visent un groupe entier, sans personne précise mise en cause ; ou des affirmations fausses sur une personne sont relevées, mais la décision les reproche comme un manque de rigueur de l'information, pas comme une atteinte à ses droits."
+      non: "Les propos visent un groupe entier ou des personnages de fiction, sans personne réelle mise en cause ; ou des affirmations fausses sur une personne sont relevées, mais la décision les reproche comme un manque de rigueur de l'information, pas comme une atteinte à ses droits."
     },
     "protection_mineurs" => {
       question: "La décision reproche-t-elle un manquement à la protection du jeune public ?",
@@ -38,23 +38,23 @@ module Motifs
     },
     "publicite" => {
       question: "La décision reproche-t-elle un manquement aux règles de la publicité ?",
-      oui: "Publicité, parrainage, placement de produit ou téléachat non conforme aux règles.",
+      oui: "Publicité, parrainage, placement de produit ou téléachat non conforme aux règles, y compris une publicité interdite autour des programmes pour enfants (qui relève aussi de protection_mineurs).",
       non: "La décision ne mentionne la publicité qu'à propos des ressources ou du modèle économique de l'éditeur."
     },
     "quotas_culturels" => {
       question: "La décision reproche-t-elle le non-respect de quotas ou d'obligations en faveur des chansons ou des œuvres audiovisuelles et cinématographiques ?",
       oui: "Une radio n'a pas diffusé assez de chansons d'expression française, de nouveaux talents ou de nouvelles productions, ou une chaîne de télévision ou un service de vidéo à la demande n'a pas assez diffusé ou financé de films, séries ou documentaires.",
-      non: "La radio n'émet plus du tout, ou n'a pas transmis ses enregistrements."
+      non: "La radio n'émet plus du tout, ou la chaîne ne respecte pas la part minimale d'un genre de programmes qui définit son format, par exemple plus de la moitié de vidéomusiques pour une chaîne musicale."
     },
-    "non_respect_autorisation" => {
-      question: "La décision reproche-t-elle de ne pas respecter les conditions de l'autorisation d'émettre ?",
-      oui: "Aucun programme n'est diffusé sur la fréquence autorisée, l'émission se fait depuis un autre site ou avec une puissance ou une déviation de fréquence non conforme, ou le programme ne correspond pas au format prévu (catégorie de radio, part de programmes locaux, thématique de la chaîne).",
+    "non_respect_engagements" => {
+      question: "La décision reproche-t-elle de ne pas respecter les engagements pris dans l'autorisation d'émettre ou la convention ?",
+      oui: "Aucun programme n'est diffusé sur la fréquence autorisée, l'émission se fait depuis un autre site ou avec une puissance ou une déviation de fréquence non conforme, ou le programme ne correspond pas au format prévu : catégorie de radio, part de programmes locaux, thématique de la chaîne, ou part minimale d'un genre de programmes prévue par la convention.",
       non: "La décision reproche seulement des quotas de chansons, des propos tenus à l'antenne ou des documents non transmis."
     },
     "obligations_declaratives" => {
-      question: "La décision reproche-t-elle de ne pas avoir transmis des documents ou des informations à l'Arcom ?",
-      oui: "Comptes, enregistrements, déclarations ou informations demandés par l'Arcom n'ont pas été fournis.",
-      non: "Le document manquant devait être remis à un autre organisme que l'Arcom, par exemple la BnF, ou l'éditeur n'a simplement pas présenté d'observations pendant la procédure."
+      question: "La décision reproche-t-elle de ne pas avoir transmis des documents ou des informations au régulateur ?",
+      oui: "Des documents demandés par l'Arcom, l'ancien Conseil supérieur de l'audiovisuel (CSA) ou l'un de ses comités territoriaux n'ont pas été fournis : rapport annuel, comptes certifiés, enregistrements des programmes, déclarations ou informations.",
+      non: "Le document manquant devait être remis à un autre organisme que le régulateur, par exemple la BnF, ou l'éditeur n'a simplement pas présenté d'observations pendant la procédure."
     },
     "medias_interdits_ue" => {
       question: "La décision reproche-t-elle la diffusion d'un média visé par des sanctions de l'Union européenne ?",

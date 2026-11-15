@@ -73,7 +73,11 @@ File.write("#{out}/regles.md", <<~RULES)
 
   ## Normalisations faites par le code après Claude
   - montant : toujours écrit « 25 000 € », ou « 25 000 F » pour les francs, quel que soit le mot du texte (« euros », « francs »).
-  - entite_visee : « Limited », « Ltd » et « GmbH » en fin de nom sont retirés, comme SA, SAS ou SARL.
+  - entite_visee : « Limited », « Ltd » et « GmbH » en fin de nom sont retirés, comme SA, SAS, SARL, SAM (société anonyme monégasque) ou SCOP.
+  - services : une fréquence écrite après le nom du service est retirée (« Tonic FM 91,1 MHz » devient « Tonic FM »).
+  - entite_visee et services : les anciennes graphies de TF1 (« T.F.1 », « T.F. 1 », « TF 1 », « Télévision française 1 ») sont écrites « TF1 ».
+  - nature_sanction : vide quand le dispositif est absent de Légifrance (on ne peut pas la connaître).
+  - type : l'abrogation d'une autorisation après que l'éditeur y a renoncé est une clôture sans sanction, pas une sanction.
   - entite_visee : le code retire le sigle final entre parenthèses (« Société d'exploitation d'un service d'information (SESI) » devient « Société d'exploitation d'un service d'information »), la forme juridique en tête ou en fin de nom (« SAS Voltage » devient « Voltage », « Traffic Ready SA » devient « Traffic Ready »), et met la première lettre en majuscule (« Ministère de l'action… »). Compare l'entité après ces normalisations.
   - type « clôture sans sanction » : la liste de motifs est vide par convention, et le script ne signale aucun écart de motif pour ces lignes.
   - Les valeurs de Jev entre 0,3 et 0,7 ne sont pas signalées dans a_verifier, par choix : seuls les désaccords nets (Jev au-dessus de 0,7 sur un motif absent chez Claude, ou sous 0,3 sur un motif retenu par Claude) le sont.
@@ -81,7 +85,7 @@ File.write("#{out}/regles.md", <<~RULES)
 
   ## Conventions déjà appliquées par le script (ce ne sont pas des erreurs)
   - services : quand une émission est diffusée sur deux services (par exemple France Inter et Franceinfo), on retient seulement le service que vise le dispositif de la décision.
-  - emissions : une émission examinée mais pour laquelle la décision dit qu'il n'y a pas lieu de sanctionner est exclue ; une émission de correction qui est elle-même reprochée est incluse ; pour une décision sur une période (pluralisme sur un mois), on liste les émissions citées en exemple, pas l'échantillon visionné.
+  - emissions : dans une décision qui sanctionne d'autres émissions, une émission examinée mais pour laquelle la décision dit qu'il n'y a pas lieu de sanctionner est exclue ; pour une clôture sans sanction, l'émission poursuivie est gardée ; une émission de correction qui est elle-même reprochée est incluse ; pour une décision sur une période (pluralisme sur un mois), on liste les émissions citées en exemple, pas l'échantillon visionné.
 
   ## Claude (consigne verbatim)
   #{Claude::INSTRUCTIONS}

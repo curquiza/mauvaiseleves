@@ -31,7 +31,8 @@ class Claude
       d'enregistrements ou de documents. Liste toutes les émissions et toutes les dates citées,
       sans en omettre ni les résumer. Si le manquement porte sur l'ensemble du programme
       d'une période sans qu'aucune émission soit citée (par exemple des quotas de chansons),
-      laisse la liste vide.
+      laisse la liste vide. N'invente jamais de bornes de dates : si le texte dit seulement
+      « l'été 1994 », écris « été 1994 ».
     - entite_visee : l'entité visée par la décision (société, association, administration…),
       c'est-à-dire l'éditeur ou le responsable, pas le nom du service. Écris son nom sans article
       ni forme juridique en tête : « Radio France » et non « la société nationale de programme
@@ -55,8 +56,9 @@ class Claude
       la suite de la procédure. N'utilise une date ou une année que pour les faits qu'elle
       concerne dans la décision (par exemple, pas « demandes formulées depuis 2022 » si 2022
       est la date d'entrée en vigueur d'une obligation et non celle des demandes). Pour une procédure close sans sanction, décris ce qui était
-      reproché dans la procédure (« Il était reproché… »), et ne présente jamais comme établi
-      un manquement que la décision écarte.
+      reproché dans la procédure (« Il était reproché… ») en décrivant seulement les faits
+      poursuivis, sans reprendre de qualification (insuffisant, non contredit, manquement…) que
+      la décision écarte.
     - doute : si une de ces informations est ambiguë ou incertaine, explique en une phrase
       courte laquelle et pourquoi. Sinon, laisse une chaîne vide. Une valeur vide ou null qui
       applique ces règles (pas d'amende, aucune émission citée, aucun motif) n'est pas un doute :

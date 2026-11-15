@@ -131,8 +131,9 @@ begin
     media = classification["media"]
     # Type and kind of sanction come from Jev; the regex answers are only used to cross-check.
     type = classification["type"]["choice"]
-    kind = classification["nature"]["choice"] if type == "sanction"
-    regex_kind = Extract.sanction_kind(dispositif, title) if regex_type == "sanction"
+    # Without the operative part, the kind of sanction cannot be known: left empty.
+    kind = classification["nature"]["choice"] if type == "sanction" && !dispositif.empty?
+    regex_kind = Extract.sanction_kind(dispositif, title) if regex_type == "sanction" && !dispositif.empty?
     entity = Extract.normalize_entity(extraction["entite_visee"])
     motifs = extraction["motifs"].uniq
     regex_amount = Extract.amount(dispositif)
@@ -143,7 +144,7 @@ begin
     checks << "dispositif absent de Légifrance (voir le PDF du JO)" if dispositif.empty?
     checks << "type : regex = #{regex_type}, Jev = #{type}" if regex_type != "à vérifier" && regex_type != type
     checks << "type incertain" if Jev.top_probability(classification["type"]) < Jev::YES
-    if type == "sanction"
+    if kind
       checks << "nature : regex = #{regex_kind}, Jev = #{kind}" if regex_kind && regex_kind != kind
       checks << "nature de sanction incertaine" if Jev.top_probability(classification["nature"]) < Jev::YES
     end
@@ -180,7 +181,7 @@ begin
       "nor" => decision["nor"],
       "lien_legifrance" => "https://www.legifrance.gouv.fr/jorf/id/#{cid}",
       "texte_complet" => full_text[0, CELL_LIMIT],
-      "services" => extraction["services"].join(" ; "),
+      "services" => extraction["services"].map { |s| Extract.normalize_service(s) }.join(" ; "),
       "resume" => extraction["resume"].to_s.strip,
       "emissions" => extraction["emissions"].map { |e| "#{e['titre']} (#{e['dates_diffusion'].join(', ')})" }.join(" ; "),
       "media" => media["choice"],

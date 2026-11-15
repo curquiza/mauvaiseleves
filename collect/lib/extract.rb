@@ -4,8 +4,12 @@ require "date"
 # operative part. No interpretation here.
 module Extract
   # Strips HTML and normalizes whitespace.
+  # Old decisions write French quotes as "<<" and ">>": they are turned into « » first,
+  # otherwise the tag removal below would erase the quoted text.
   def self.plain(html)
     html.to_s
+        .gsub(/<<|&lt;&lt;/, "« ")
+        .gsub(/>>|&gt;&gt;/, " »")
         .gsub(/<br\s*\/?>|<\/p>/i, "\n")
         .gsub(/<[^>]+>/, " ")
         .gsub("&nbsp;", " ")
@@ -57,11 +61,23 @@ module Extract
     numbered, unnumbered = decision["articles"].to_a.partition { |a| a["num"].to_i.positive? }
     recitals = [plain(decision["visa"]), *unnumbered.map { |a| plain(a["content"]) }].reject(&:empty?).join("\n\n")
     operative = numbered.sort_by { |a| a["num"].to_i }.map { |a| "Article #{a['num']} : #{plain(a['content'])}" }.join("\n\n")
-    if operative.empty? && (index = recitals =~ DECIDE)
-      operative = recitals[index..].sub(DECIDE, "").strip
-      recitals = recitals[0...index].strip
-    end
+    operative, recitals = split_operative(recitals) if operative.empty?
     { "titre" => title(decision["title"]), "considerants" => recitals, "dispositif" => operative }
+  end
+
+  # For old decisions without separate articles: the operative part usually follows
+  # "Décide :", but in some texts the articles ("Art. 1er. - …") come before it.
+  # Returns [operative, recitals].
+  def self.split_operative(text)
+    decide = text =~ DECIDE
+    if decide && text[decide..].sub(DECIDE, "").strip.size > 20
+      [text[decide..].sub(DECIDE, "").strip, text[0...decide].strip]
+    elsif (article = text =~ /Art\.\s*1(er)?\b/)
+      operative = text[article..].sub(/\s*(Après en avoir délibéré,?\s*)?D[ée]cide\s*:\s*\z/i, "").strip
+      [operative, text[0...article].strip]
+    else
+      ["", text]
+    end
   end
 
   # Type of measure, from the title and, when needed, the operative part.
@@ -129,13 +145,27 @@ module Extract
   # - removes a legal form at the start or the end: "SAS Voltage" => "Voltage",
   #   "Traffic Ready SA" => "Traffic Ready". At the start, only when a proper name follows,
   #   so that "Association pour le développement…" stays whole;
-  # - capitalizes the first letter: "ministère de…" => "Ministère de…".
+  # - capitalizes the first letter: "ministère de…" => "Ministère de…";
+  # - writes the old spellings of TF1 the same way.
   def self.normalize_entity(name)
-    name.to_s.strip
-        .sub(/\s*\((?-i:[A-Z0-9&.\-]{2,})\)\z/, "")
-        .sub(/\A(SASU|SAS|SARL|SA|EURL|SNC|association)\s+(?=(?-i:\p{Lu})|\d)/i, "")
-        .sub(/\s+(SASU|SAS|SARL|SA|EURL|SNC|Limited|Ltd\.?|GmbH)\z/, "")
-        .sub(/\A\p{Ll}/, &:upcase)
+    canonical(
+      name.to_s.strip
+          .sub(/\s*\((?-i:[A-Z0-9&.\-]{2,})\)\z/, "")
+          .sub(/\A(SASU|SAS|SARL|SAM|SA|EURL|SNC|SCOP|association)\s+(?=(?-i:\p{Lu})|\d)/i, "")
+          .sub(/\s+(SASU|SAS|SARL|SAM|SA|EURL|SNC|SCOP|Limited|Ltd\.?|GmbH)\z/, "")
+          .sub(/\A\p{Ll}/, &:upcase)
+    )
+  end
+
+  # Removes a frequency written after a service name ("Tonic FM 91,1 MHz" => "Tonic FM")
+  # and writes the old spellings of TF1 the same way.
+  def self.normalize_service(service)
+    canonical(service.to_s.strip.sub(/\s*\(?\d+(?:[.,]\d+)?\s*MHz\)?\z/i, ""))
+  end
+
+  # Old decisions write TF1 as "T.F.1", "T.F. 1", "TF 1" or "Télévision française 1".
+  def self.canonical(name)
+    name.match?(/\A(T\.?\s?F\.?\s?1|Télévision française 1)(\s*\(.*\))?\z/i) ? "TF1" : name
   end
 
   # NOR identifiers start with "RCA" for Arcom, "CSA" for the former CSA.

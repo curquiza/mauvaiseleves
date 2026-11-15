@@ -30,9 +30,9 @@ class Jev
 
   # Type of measure. Also extracted by regex: the script compares both answers.
   TYPES = {
-    "sanction" => "Le dispositif prononce une sanction : amende, suspension, retrait d'autorisation ou communiqué à diffuser.",
+    "sanction" => "Le dispositif prononce une sanction : amende, suspension, communiqué à diffuser, ou retrait d'autorisation imposé à l'éditeur pour un manquement.",
     "mise en demeure" => "Le dispositif met en demeure de respecter des obligations, sans prononcer de sanction.",
-    "clôture sans sanction" => "Le dispositif clôt une procédure de sanction en disant qu'il n'y a pas lieu de sanctionner ou de statuer.",
+    "clôture sans sanction" => "Le dispositif clôt une procédure de sanction sans sanctionner : pas lieu de sanctionner ou de statuer, ou fin de la procédure après que l'éditeur a renoncé à son autorisation, même si celle-ci est abrogée.",
     "modification de sanction" => "Le dispositif modifie une sanction prononcée par une décision antérieure.",
     "autre" => "Aucune des catégories précédentes, par exemple le retrait d'une mise en demeure."
   }.freeze
@@ -41,7 +41,7 @@ class Jev
   NATURES = {
     "amende" => "Une sanction pécuniaire, c'est-à-dire une somme à payer.",
     "suspension" => "La suspension de l'autorisation ou de la diffusion d'un programme.",
-    "retrait d'autorisation" => "Le retrait ou l'abrogation de l'autorisation d'émettre.",
+    "retrait d'autorisation" => "Le retrait ou l'abrogation de l'autorisation d'émettre, imposé à l'éditeur pour un manquement.",
     "réduction de la durée d'autorisation" => "La réduction de la durée de l'autorisation.",
     "communiqué à l'antenne" => "L'obligation de diffuser un communiqué à l'antenne.",
     "autre" => "Une sanction d'une autre nature que celles listées ci-dessus."
